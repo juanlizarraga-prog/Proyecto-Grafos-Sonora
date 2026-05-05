@@ -14,6 +14,7 @@ Requisitos
 Para ejecutar este proyecto, necesitas tener instalado Python 3.8 o superior y las siguientes librerías:
 
 Bash
+
 pip install fastapi uvicorn pydantic
 Archivos del Proyecto
 Para que la aplicación funcione correctamente, asegúrate de mantener los siguientes archivos en la misma carpeta:
@@ -29,6 +30,7 @@ Paso 1: Iniciar el servidor local
 Abre una terminal en la carpeta del proyecto y ejecuta:
 
 Bash
+
 uvicorn main:app --reload
 Paso 2: Abrir la aplicación
 Una vez que el servidor esté corriendo, abre tu navegador y dirígete a:
