@@ -36,7 +36,9 @@ Abre una terminal en la carpeta del proyecto y ejecuta:
 Bash
 
 uvicorn main:app --reload
+
 Paso 2: Abrir la aplicación
+
 Una vez que el servidor esté corriendo, abre tu navegador y dirígete a:
 http://localhost:8000
 
