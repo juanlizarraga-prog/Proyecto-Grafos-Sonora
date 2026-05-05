@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Mapa Interactivo de Sonora</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.23.0/cytoscape.min.js"></script>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            margin: 0; 
+            display: flex; 
+            height: 100vh; 
+            overflow: hidden; 
+            background-color: #1e293b;
+        }
+
+        #sidebar { 
+            width: 350px; 
+            background: #0f172a; 
+            color: #f8fafc; 
+            padding: 25px; 
+            z-index: 10; 
+            box-sizing: border-box;
+            overflow-y: auto; 
+            box-shadow: 4px 0 15px rgba(0,0,0,0.3);
+        }
+
+        #sidebar h2 { margin-top: 0; color: #38bdf8; font-size: 22px; margin-bottom: 25px;}
+        #sidebar h4 { margin: 0 0 10px 0; color: #cbd5e1; font-weight: 600; }
+
+        .panel { 
+            background: #1e293b; 
+            padding: 18px; 
+            border-radius: 10px; 
+            margin-bottom: 20px; 
+            border: 1px solid #334155;
+        }
+
+        input, select { 
+            width: 100%; 
+            margin-bottom: 12px; 
+            padding: 10px; 
+            box-sizing: border-box;
+            border-radius: 6px;
+            border: 1px solid #475569;
+            background: #0f172a;
+            color: white;
+            font-size: 14px;
+        }
+        
+        input::placeholder { color: #64748b; }
+
+        button { 
+            width: 100%;
+            padding: 12px; 
+            background: #0284c7; 
+            color: white; 
+            border: none; 
+            border-radius: 6px; 
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer; 
+            transition: all 0.3s ease;
+        }
+
+        button:hover { 
+            background: #0369a1; 
+            transform: translateY(-1px);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+
+        .btn-success { background: #059669; }
+        .btn-success:hover { background: #047857; }
+
+        #resultado-panel {
+            background: #064e3b;
+            border-color: #059669;
+            display: none; 
+        }
+
+        #resultado-panel p { margin: 8px 0; font-size: 14px; color: #d1fae5; }
+        .highlight-text { color: #fff; font-weight: bold; }
+
+        #cy { 
+            flex-grow: 1; 
+            background-color: #e2e8f0; 
+            background-image: url('mapa-sonora.jpg'); 
+            background-repeat: no-repeat; 
+            background-size: cover; 
+            background-position: center; 
+        }
+
+        .tip { font-size: 12px; color: #94a3b8; text-align: center; display: block; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div id="sidebar">
+    <h2>Mapa Interactivo</h2>
+    
+    <div class="panel">
+        <h4>Añadir Ciudad</h4>
+        <input id="newCity" placeholder="Nombre de la nueva ciudad">
+        <button onclick="addCity()">Añadir Ciudad</button>
+    </div>
+
+    <div class="panel">
+        <h4>Añadir Colindancia</h4>
+        <select id="c1"><option value="">Seleccione Origen...</option></select>
+        <select id="c2"><option value="">Seleccione Destino...</option></select>
+        <input id="dist" type="number" placeholder="Distancia (KM)">
+        <input id="peaje" type="number" placeholder="Peaje ($)">
+        <button onclick="addEdge()">Conectar Ciudades</button>
+    </div>
+
+    <div class="panel">
+        <h4>Calcular Ruta</h4>
+        <select id="start"><option value="">Desde (Origen)...</option></select>
+        <select id="end"><option value="">Hasta (Destino)...</option></select>
+        <select id="mode">
+            <option value="distancia">Ruta más corta (Por KM)</option>
+            <option value="peaje">Ruta más barata (Por Peaje)</option>
+        </select>
+        <button onclick="calcPath()" class="btn-success">Buscar Ruta</button>
+    </div>
+    
+    <div id="resultado-panel" class="panel">
+        <h4 style="color: #34d399;">Detalles de la Ruta</h4>
+        <p><strong>Recorrido:</strong> <br><span id="res-ruta" class="highlight-text"></span></p>
+        <p><strong>Distancia total:</strong> <span id="res-dist" class="highlight-text"></span> KM</p>
+        <p><strong>Costo total:</strong> $<span id="res-peaje" class="highlight-text"></span></p>
+    </div>
+
+    <span class="tip">Selecciona una ciudad o línea y presiona 'Suprimir' para borrarla.</span>
+</div>
+
+<div id="cy"></div>
+
+<script>
+    let cy;
+    const API = "";
+
+    async function init() {
+        const res = await fetch(`${API}/data`);
+        const data = await res.json();
+
+        cy = cytoscape({
+            container: document.getElementById('cy'),
+            elements: data,
+            userZoomingEnabled: false,
+            userPanningEnabled: false,
+
+            style: [
+                { 
+                    selector: 'node', 
+                    style: { 
+                        'label': 'data(id)', 
+                        'background-color': '#EF280F', 
+                        'color': '#fff', 
+                        'text-outline-color': '#0f172a',
+                        'text-outline-width': 1,
+                        'font-size': '5px', 
+                        'text-valign': 'top',
+                        'text-margin-y': -4,
+                        'width': 5, 
+                        'height': 5,
+                        'z-index': 10
+                    } 
+                },
+                { 
+                    selector: 'edge', 
+                    style: { 
+                        'line-color': '#222222',
+                        'width': 1, 
+                        'z-index': 1
+                    } 
+                },
+                { 
+                    selector: 'node.highlighted', 
+                    style: { 
+                        'background-color': '#10b981', 
+                        'border-width': 1,
+                        'border-color': '#047857',
+                        'width': 10,
+                        'height': 10,
+                        'z-index': 11
+                    } 
+                },
+                { 
+                    selector: 'edge.highlighted', 
+                    style: { 
+                        'line-color': '#10b981', 
+                        'width': 2, 
+                        'z-index': 2 
+                    } 
+                }
+            ],
+            layout: { name: 'preset' }
+        });
+
+        // evento para borrar con la tecla suprimir cuando un nodo o arista esté seleccionado
+        window.addEventListener('keydown', (e) => {
+            if (e.key === "Delete") {
+                const sel = cy.$(':selected');
+                sel.forEach(ele => {
+                    const id = ele.data('id');
+                    if(ele.isNode()) fetch(`${API}/ciudad/${id}`, {method:'DELETE'});
+                    cy.remove(ele);
+                });
+                actualizarListas(); // Actualizamos las listas al borrar
+            }
+        });
+
+        // herramienta para acomodar la precarga de nodos en el mapa
+        cy.on('dragfree', 'node', function(evt){
+            let nodo = evt.target;
+            let id = nodo.id();
+            let x = Math.round(nodo.position('x'));
+            let y = Math.round(nodo.position('y'));
+            console.log(`grafo.agregar_ciudad("${id}", ${x}, ${y})`);
+        });
+
+        
+        actualizarListas();
+    }
+
+    // Función para llenar los <select> con las ciudades que existen en el grafo
+    function actualizarListas() {
+        // Obtenemos todos los nodos actuales y ordenamos alfabéticamente
+        const ciudades = cy.nodes().map(nodo => nodo.data('id')).sort();
+        const selectores = ['c1', 'c2', 'start', 'end'];
+
+        selectores.forEach(idSelect => {
+            const elemento = document.getElementById(idSelect);
+            const valorActual = elemento.value; // Guardamos lo que estaba seleccionado
+            
+            // Reiniciamos las opciones
+            elemento.innerHTML = '<option value="">Seleccione ciudad...</option>';
+            
+            // Agregamos las ciudades
+            ciudades.forEach(ciudad => {
+                elemento.innerHTML += `<option value="${ciudad}">${ciudad}</option>`;
+            });
+
+            // Si el valor que estaba seleccionado aun existe, lo volvemos a seleccionar
+            if(ciudades.includes(valorActual)) {
+                elemento.value = valorActual;
+            }
+        });
+    }
+
+    async function addCity() {
+        const name = document.getElementById('newCity').value.trim();
+        if(!name) return;
+        
+        // Evitar duplicados
+        if(cy.$id(name).length > 0) {
+            alert("Esta ciudad ya existe en el mapa.");
+            return;
+        }
+
+        const city = { nombre: name, x: cy.width() / 2, y: cy.height() / 2 };
+        await fetch(`${API}/ciudad`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(city) });
+        cy.add({ data: { id: name }, position: { x: city.x, y: city.y } });
+        
+        document.getElementById('newCity').value = '';
+        actualizarListas(); // Actualizamos las listas al agregar
+    }
+
+    async function addEdge() {
+        const c1 = document.getElementById('c1').value;
+        const c2 = document.getElementById('c2').value;
+        const dist = parseFloat(document.getElementById('dist').value);
+        const peaje = parseFloat(document.getElementById('peaje').value);
+        
+        if(!c1 || !c2) { alert("Seleccione ciudad de origen y destino."); return; }
+        if(c1 === c2) { alert("El origen y destino no pueden ser iguales."); return; }
+        if(isNaN(dist) || isNaN(peaje)) { alert("Por favor ingrese valores numéricos en distancia y peaje."); return; }
+
+        const edge = { origen: c1, destino: c2, distancia: dist, peaje: peaje };
+        await fetch(`${API}/arista`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(edge) });
+        
+        // Evitar lineas duplicadas si ya existia
+        const edgeId = `${c1}-${c2}`;
+        const edgeIdInvertido = `${c2}-${c1}`;
+        if(cy.$id(edgeId).length === 0 && cy.$id(edgeIdInvertido).length === 0) {
+            cy.add({ data: { id: edgeId, source: c1, target: c2, dist: dist, peaje: peaje } });
+        }
+        
+        document.getElementById('dist').value = ''; document.getElementById('peaje').value = '';
+        document.getElementById('c1').value = ''; document.getElementById('c2').value = '';
+    }
+
+    async function calcPath() {
+        cy.$('.highlighted').removeClass('highlighted');
+        document.getElementById('resultado-panel').style.display = 'none';
+
+        const o = document.getElementById('start').value;
+        const d = document.getElementById('end').value;
+        const m = document.getElementById('mode').value;
+
+        if(!o || !d) {
+            alert("Seleccione ciudad de origen y destino para calcular la ruta.");
+            return;
+        }
+
+        const res = await fetch(`${API}/ruta?origen=${o}&destino=${d}&criterio=${m}`);
+        const data = await res.json();
+
+        if (data && data.ruta && data.ruta.length > 0) {
+            let distanciaTotal = 0;
+            let peajeTotal = 0;
+
+            data.ruta.forEach((nodeId, i) => {
+                cy.$id(nodeId).addClass('highlighted');
+                
+                if (i < data.ruta.length - 1) {
+                    const nextNode = data.ruta[i+1];
+                    const edge = cy.edges(`[source="${nodeId}"][target="${nextNode}"], [source="${nextNode}"][target="${nodeId}"]`);
+                    
+                    if(edge.length > 0) {
+                        edge.addClass('highlighted');
+                        distanciaTotal += parseFloat(edge.data('dist'));
+                        peajeTotal += parseFloat(edge.data('peaje') || 0); 
+                    }
+                }
+            });
+
+            document.getElementById('res-ruta').innerText = data.ruta.join(' ➔ ');
+            document.getElementById('res-dist').innerText = distanciaTotal;
+            document.getElementById('res-peaje').innerText = peajeTotal;
+            document.getElementById('resultado-panel').style.display = 'block';
+        } else {
+            alert("No se encontró una ruta posible entre estas ciudades.");
+        }
+    }
+
+    init();
+</script>
+</body>
+</html>
