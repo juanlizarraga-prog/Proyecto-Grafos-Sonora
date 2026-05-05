@@ -16,7 +16,9 @@ Para ejecutar este proyecto, necesitas tener instalado Python 3.8 o superior y l
 Bash
 
 pip install fastapi uvicorn pydantic
+
 Archivos del Proyecto
+
 Para que la aplicación funcione correctamente, asegúrate de mantener los siguientes archivos en la misma carpeta:
 
 main.py: Lógica del servidor y algoritmos de grafos.
@@ -26,7 +28,9 @@ index.html: Interfaz de usuario y visualización.
 mapa-sonora.jpg: Imagen de fondo para el mapa.
 
 Ejecución
+
 Paso 1: Iniciar el servidor local
+
 Abre una terminal en la carpeta del proyecto y ejecuta:
 
 Bash
